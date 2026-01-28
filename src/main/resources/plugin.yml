@@ -1,6 +1,6 @@
 name: Wardon
 main: com.qaut.qautjail.QauTJail
-version: 1.21
+version: ${version}
 api-version: 1.21
 author: QauT
 

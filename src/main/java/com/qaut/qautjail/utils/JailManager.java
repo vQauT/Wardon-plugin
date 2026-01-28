@@ -14,6 +14,7 @@ import java.util.*;
 public class JailManager implements Listener {
 
     private final QauTJail plugin;
+
     private final Map<UUID, JailData> jailedPlayers = new HashMap<>();
     private final Map<UUID, String> pendingSigns = new HashMap<>();
 
@@ -21,65 +22,111 @@ public class JailManager implements Listener {
         this.plugin = plugin;
     }
 
-    // سبب الإفراج
-    public enum ReleaseCause {
-        MANUAL,            // /unjail
-        SENTENCE_COMPLETE, // انتهاء المدة
-        SHUTDOWN           // عند الإيقاف
+    // ============================================================
+    // 📌 Pending Signs (setjailsign)
+    // ============================================================
+    public void setPendingSign(UUID uuid, String jailName) {
+        pendingSigns.put(uuid, jailName);
     }
 
-    // البيانات
+    public String getPendingSign(UUID uuid) {
+        return pendingSigns.get(uuid);
+    }
+
+    public void clearPendingSign(UUID uuid) {
+        pendingSigns.remove(uuid);
+    }
+
+    // ============================================================
+    // 🔓 Release Cause
+    // ============================================================
+    public enum ReleaseCause {
+        MANUAL,
+        SENTENCE_COMPLETE,
+        SHUTDOWN
+    }
+
+    // ============================================================
+    // 📦 Jail Data
+    // ============================================================
     public static class JailData {
+
         public final Location oldLocation;
-        public final ItemStack[] inventoryContents;
-        public final ItemStack[] armorContents;
+        public final ItemStack[] inventory;
+        public final ItemStack[] armor;
         public final ItemStack offhand;
         public final Location oldRespawn;
 
-        public long releaseTime;
-        public long remainingTime;
-        public final boolean onlineOnly;
-        public boolean pendingRelease;
-
-        public final String reason;
         public final String jailName;
+        public final String reason;
         public final Location jailLocation;
         public final Location signLocation;
-        public int taskId;
 
-        public JailData(Location oldLocation, ItemStack[] inventory, ItemStack[] armor, ItemStack offhand,
-                        long releaseTime, long remainingTime, boolean onlineOnly,
-                        String reason, String jailName, Location jailLocation, Location signLocation,
-                        Location oldRespawn) {
+        public final boolean onlineOnly;
+
+        public long releaseTime;
+        public long remainingTime;
+        public int taskId = 0;
+
+        public boolean pendingRelease = false;
+        public boolean released = false; // 🔑 المفتاح الأساسي لمنع التكرار
+
+        public JailData(
+                Location oldLocation,
+                ItemStack[] inventory,
+                ItemStack[] armor,
+                ItemStack offhand,
+                Location oldRespawn,
+                String jailName,
+                String reason,
+                Location jailLocation,
+                Location signLocation,
+                boolean onlineOnly,
+                long releaseTime,
+                long remainingTime
+        ) {
             this.oldLocation = oldLocation;
-            this.inventoryContents = inventory;
-            this.armorContents = armor;
+            this.inventory = inventory;
+            this.armor = armor;
             this.offhand = offhand;
-            this.releaseTime = releaseTime;
-            this.remainingTime = remainingTime;
-            this.onlineOnly = onlineOnly;
-            this.pendingRelease = false;
-            this.reason = reason;
+            this.oldRespawn = oldRespawn;
             this.jailName = jailName;
+            this.reason = reason;
             this.jailLocation = jailLocation;
             this.signLocation = signLocation;
-            this.oldRespawn = oldRespawn;
+            this.onlineOnly = onlineOnly;
+            this.releaseTime = releaseTime;
+            this.remainingTime = remainingTime;
         }
     }
 
-    public void setPendingSign(UUID uuid, String jailName) { pendingSigns.put(uuid, jailName); }
-    public String getPendingSign(UUID uuid) { return pendingSigns.get(uuid); }
-    public void clearPendingSign(UUID uuid) { pendingSigns.remove(uuid); }
+    // ============================================================
+    // 🔍 Utils
+    // ============================================================
+    public boolean isJailed(UUID uuid) {
+        return jailedPlayers.containsKey(uuid);
+    }
 
-    public boolean isJailed(UUID uuid) { return jailedPlayers.containsKey(uuid); }
-    public Map<UUID, JailData> getJailedPlayers() { return jailedPlayers; }
+    public Map<UUID, JailData> getJailedPlayers() {
+        return jailedPlayers;
+    }
 
-    // ========================== سجن اللاعب ==========================
-    public boolean jailPlayer(Player player, String jailName, long durationMillis, String reason,
+    public boolean isJailOccupied(String jailName) {
+        for (JailData data : jailedPlayers.values()) {
+            if (data.jailName.equalsIgnoreCase(jailName)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // ============================================================
+    // 🚨 Jail Player
+    // ============================================================
+    public boolean jailPlayer(Player player, String jailName, long duration, String reason,
                               Location jailLocation, Location signLocation) {
 
-        UUID id = player.getUniqueId();
-        if (jailedPlayers.containsKey(id)) return false;
+        if (isJailed(player.getUniqueId())) return false;
 
         boolean onlineOnly = plugin.getConfig().getBoolean("onlinejail", false);
 
@@ -88,92 +135,109 @@ public class JailManager implements Listener {
         ItemStack[] armor = player.getInventory().getArmorContents();
         ItemStack offhand = player.getInventory().getItemInOffHand();
 
-        long now = System.currentTimeMillis();
-        long releaseAt = now + durationMillis;
-        long remaining = onlineOnly ? durationMillis : 0L;
-
         Location oldRespawn = player.getBedSpawnLocation();
         if (oldRespawn == null) oldRespawn = player.getWorld().getSpawnLocation();
 
-        player.setBedSpawnLocation(jailLocation, true);
+        long now = System.currentTimeMillis();
+        long releaseAt = now + duration;
+        long remaining = onlineOnly ? duration : 0L;
 
-        JailData data = new JailData(oldLoc, inv, armor, offhand,
-                releaseAt, remaining, onlineOnly, reason, jailName, jailLocation, signLocation, oldRespawn);
+        JailData data = new JailData(
+                oldLoc, inv, armor, offhand, oldRespawn,
+                jailName, reason, jailLocation, signLocation,
+                onlineOnly, releaseAt, remaining
+        );
 
-        jailedPlayers.put(id, data);
+        jailedPlayers.put(player.getUniqueId(), data);
 
-        // تنظيف الإنفنتوري ونقل اللاعب
         player.getInventory().clear();
         player.getInventory().setArmorContents(null);
         player.getInventory().setItemInOffHand(null);
+        player.setBedSpawnLocation(jailLocation, true);
         player.teleport(jailLocation);
 
-        // تحديث اللوحة
-        if (signLocation != null && signLocation.getBlock().getState() instanceof Sign sign) {
-            sign.setLine(0, ChatColor.DARK_GRAY + "⛓ " + ChatColor.GOLD + "" + ChatColor.BOLD + "Wardon Jail");
-            sign.setLine(1, ChatColor.AQUA + player.getName());
-            sign.setLine(2, ChatColor.YELLOW + formatTime(durationMillis));
-            sign.setLine(3, ChatColor.RED + reason);
-            sign.update();
-        }
-
-        // تشغيل العد التنازلي
-        startCountdown(id, player.getName(), data);
+        updateSign(data, player.getName(), duration);
+        startCountdown(player.getUniqueId(), player.getName(), data);
 
         return true;
     }
 
-    // ========================== العداد ==========================
+    // ============================================================
+    // ⏱ Countdown
+    // ============================================================
     private void startCountdown(UUID uuid, String playerName, JailData data) {
-        if (data.taskId != 0) Bukkit.getScheduler().cancelTask(data.taskId);
 
         data.taskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, () -> {
-            long remaining = data.onlineOnly
-                    ? Math.max(0, data.remainingTime -= 1000)
-                    : data.releaseTime - System.currentTimeMillis();
 
-            if (remaining <= 0) {
-                Player p = Bukkit.getPlayer(uuid);
-                if (p != null) releasePlayerInternal(p, ReleaseCause.SENTENCE_COMPLETE, null, false);
-                else data.pendingRelease = true;
+            if (data.released) {
                 Bukkit.getScheduler().cancelTask(data.taskId);
                 data.taskId = 0;
                 return;
             }
 
-            // تحديث الساين
-            if (data.signLocation != null && data.signLocation.getBlock().getState() instanceof Sign sign) {
-                sign.setLine(0, ChatColor.DARK_GRAY + "" + ChatColor.GOLD + "" + ChatColor.BOLD + "Wardon 🌙");
-                sign.setLine(1, ChatColor.WHITE + playerName);
-                sign.setLine(2, ChatColor.AQUA + formatTime(remaining));
-                sign.setLine(3, ChatColor.RED + data.reason);
-                sign.update();
+            long remaining = data.onlineOnly
+                    ? Math.max(0, data.remainingTime -= 1000)
+                    : data.releaseTime - System.currentTimeMillis();
+
+            if (remaining <= 0) {
+
+                if (data.pendingRelease || data.released) {
+                    Bukkit.getScheduler().cancelTask(data.taskId);
+                    data.taskId = 0;
+                    return;
+                }
+
+                Player p = Bukkit.getPlayer(uuid);
+                if (p != null) {
+                    releasePlayerInternal(p, ReleaseCause.SENTENCE_COMPLETE, null, false);
+                } else {
+                    data.pendingRelease = true;
+                }
+
+                Bukkit.getScheduler().cancelTask(data.taskId);
+                data.taskId = 0;
+                return;
             }
 
-        }, 0L, 20L);
+            updateSign(data, playerName, remaining);
+
+        }, 20L, 20L);
     }
 
-    // ========================== فك السجن ==========================
+    // ============================================================
+    // 🔓 Manual Release
+    // ============================================================
     public void releasePlayerManual(Player player, String moderator) {
+        JailData data = jailedPlayers.get(player.getUniqueId());
+        if (data != null) {
+            data.pendingRelease = true;
+        }
         releasePlayerInternal(player, ReleaseCause.MANUAL, moderator, false);
     }
 
+    // ============================================================
+    // 🔓 Public Auto Release
+    // ============================================================
     public void releasePlayer(Player player) {
         releasePlayerInternal(player, ReleaseCause.SENTENCE_COMPLETE, null, false);
     }
 
-    public void releasePlayer(Player player, boolean shutdown) {
-        releasePlayerInternal(player, shutdown ? ReleaseCause.SHUTDOWN : ReleaseCause.SENTENCE_COMPLETE, null, shutdown);
-    }
-
+    // ============================================================
+    // 🔓 Internal Release (ONE TIME ONLY)
+    // ============================================================
     private void releasePlayerInternal(Player player, ReleaseCause cause, String moderator, boolean shutdown) {
-        JailData data = jailedPlayers.remove(player.getUniqueId());
-        if (data == null) return;
 
-        if (data.taskId != 0) {
-            Bukkit.getScheduler().cancelTask(data.taskId);
-            data.taskId = 0;
-        }
+        JailData data = jailedPlayers.get(player.getUniqueId());
+        if (data == null || data.released) return;
+
+        data.released = true;
+        jailedPlayers.remove(player.getUniqueId());
+
+        if (data.taskId != 0) Bukkit.getScheduler().cancelTask(data.taskId);
+
+        player.getInventory().setContents(data.inventory);
+        player.getInventory().setArmorContents(data.armor);
+        player.getInventory().setItemInOffHand(data.offhand);
 
         if (data.oldRespawn != null)
             player.setBedSpawnLocation(data.oldRespawn, true);
@@ -181,51 +245,78 @@ public class JailManager implements Listener {
         if (!shutdown)
             player.teleport(data.oldLocation);
 
-        player.getInventory().setContents(data.inventoryContents);
-        player.getInventory().setArmorContents(data.armorContents);
-        player.getInventory().setItemInOffHand(data.offhand);
-
-        // تحديث اللوحة
-        if (data.signLocation != null && data.signLocation.getBlock().getState() instanceof Sign sign) {
-            sign.setLine(0, "");
-            sign.setLine(1, ChatColor.DARK_GREEN + "" + ChatColor.BOLD + "[ Empty Cell ]");
-            sign.setLine(2, "");
-            sign.setLine(3, "");
-            sign.update();
-        }
+        clearSign(data);
 
         player.sendMessage(plugin.getLanguageManager().getMessage("unjail_player"));
 
         if (plugin.getConfig().getBoolean("broadcastunjail", true)) {
-            String msg = plugin.getLanguageManager().format("unjail_broadcast", player.getName());
-            msg = ChatColor.translateAlternateColorCodes('&', msg);
-            Bukkit.broadcastMessage(msg);
+            Bukkit.broadcastMessage(
+                    plugin.getLanguageManager().format("unjail_broadcast", player.getName())
+            );
         }
 
-        // ✅ إرسال Webhook فقط في الحالات غير الـ Shutdown
+        // ✅ Webhook مرة واحدة فقط
         if (cause != ReleaseCause.SHUTDOWN) {
             boolean auto = (cause == ReleaseCause.SENTENCE_COMPLETE);
-            String releasedBy = auto
+            String by = auto
                     ? plugin.getLanguageManager().getMessage("system.auto")
-                    : (moderator != null ? moderator : "Unknown");
+                    : moderator;
 
-            try {
-                new WebhookSender(plugin).sendUnjailEmbed(
-                        player.getName(),
-                        releasedBy,
-                        "https://mc-heads.net/avatar/" + player.getUniqueId(),
-                        auto
-                );
-                plugin.getLogger().info("[Wardon 🌙] Sent unjail webhook for " + player.getName() + " (auto=" + auto + ")");
-            } catch (Exception e) {
-                plugin.getLogger().warning("[Wardon 🌙] Failed to send unjail webhook: " + e.getMessage());
-            }
+            new WebhookSender(plugin).sendUnjailEmbed(
+                    player.getName(),
+                    by,
+                    "https://mc-heads.net/avatar/" + player.getUniqueId(),
+                    auto
+            );
         }
-
-        plugin.getLogger().info("✅ Player " + player.getName() + " released from jail: " + data.jailName);
     }
 
-    // ========================== مساعدات ==========================
+    // ============================================================
+    // 🌙 Offline / Shutdown
+    // ============================================================
+    public void unjailOffline(UUID uuid) {
+        JailData data = jailedPlayers.remove(uuid);
+        if (data == null) return;
+
+        if (data.taskId != 0) Bukkit.getScheduler().cancelTask(data.taskId);
+        clearSign(data);
+    }
+
+    public void releaseAllOnShutdown() {
+        for (UUID uuid : new HashSet<>(jailedPlayers.keySet())) {
+            Player p = Bukkit.getPlayer(uuid);
+            if (p != null) {
+                releasePlayerInternal(p, ReleaseCause.SHUTDOWN, null, true);
+            }
+        }
+        jailedPlayers.clear();
+    }
+
+    // ============================================================
+    // 🪧 Sign helpers
+    // ============================================================
+    private void updateSign(JailData data, String player, long time) {
+        if (data.signLocation == null) return;
+        if (!(data.signLocation.getBlock().getState() instanceof Sign sign)) return;
+
+        sign.setLine(0, ChatColor.GOLD + "Wardon 🌙");
+        sign.setLine(1, ChatColor.WHITE + player);
+        sign.setLine(2, ChatColor.AQUA + formatTime(time));
+        sign.setLine(3, ChatColor.RED + data.reason);
+        sign.update();
+    }
+
+    private void clearSign(JailData data) {
+        if (data.signLocation == null) return;
+        if (!(data.signLocation.getBlock().getState() instanceof Sign sign)) return;
+
+        sign.setLine(0, "");
+        sign.setLine(1, ChatColor.GREEN + "[ Empty Cell ]");
+        sign.setLine(2, "");
+        sign.setLine(3, "");
+        sign.update();
+    }
+
     private String formatTime(long millis) {
         long s = millis / 1000;
         long m = s / 60;
@@ -238,76 +329,49 @@ public class JailManager implements Listener {
         return s + "s";
     }
 
-    public boolean isJailOccupied(String jailName) {
-        for (JailData data : jailedPlayers.values()) {
-            if (data.jailName.equalsIgnoreCase(jailName)) return true;
+    // ============================================================
+    // 🚫 Item Pickup
+    // ============================================================
+    @EventHandler
+    public void onItemPickup(PlayerAttemptPickupItemEvent e) {
+        if (isJailed(e.getPlayer().getUniqueId())) {
+            e.setCancelled(true);
+            e.getPlayer().sendMessage(
+                    plugin.getLanguageManager().getMessage("jail_item_pickup_blocked")
+            );
         }
-        return false;
     }
 
-    public void unjailOffline(UUID uuid) {
-        JailData data = jailedPlayers.remove(uuid);
-        if (data == null) return;
-
-        if (data.taskId != 0) Bukkit.getScheduler().cancelTask(data.taskId);
-
-        if (data.signLocation != null && data.signLocation.getBlock().getState() instanceof Sign sign) {
-            sign.setLine(0, "");
-            sign.setLine(1, ChatColor.DARK_GREEN + "⛓ " + ChatColor.GREEN + "" + ChatColor.BOLD + "[ Empty Cell ]");
-            sign.setLine(2, "");
-            sign.setLine(3, "");
-            sign.update();
-        }
-
-        plugin.getLogger().info("✅ Offline player released: " + uuid);
-    }
-
-    public void releaseAllOnShutdown() {
-        for (UUID uuid : new HashSet<>(jailedPlayers.keySet())) {
-            Player p = Bukkit.getPlayer(uuid);
-            if (p != null) releasePlayerInternal(p, ReleaseCause.SHUTDOWN, null, true);
-        }
-        jailedPlayers.clear();
-        plugin.getLogger().info("✅ All jailed players released on shutdown.");
-    }
-    // ✅ عند دخول اللاعب
+    // ============================================================
+    // 👤 Player Join
+    // ============================================================
     public void handleJoin(Player player) {
-        UUID id = player.getUniqueId();
-        JailData data = jailedPlayers.get(id);
-        if (data == null) return;
+        JailData data = jailedPlayers.get(player.getUniqueId());
+        if (data == null || data.released) return;
 
-        // إذا انتهت مدته وهو أوفلاين → يفرج عنه تلقائيًا
         if (!data.onlineOnly && System.currentTimeMillis() >= data.releaseTime) {
-            releasePlayer(player);
+            releasePlayerInternal(player, ReleaseCause.SENTENCE_COMPLETE, null, false);
             return;
         }
 
-        // تأكد أن اللاعب داخل السجن الصحيح
-        if (player.getWorld() != data.jailLocation.getWorld()
-                || player.getLocation().distanceSquared(data.jailLocation) > 1) {
+        if (!player.getWorld().equals(data.jailLocation.getWorld())
+                || player.getLocation().distanceSquared(data.jailLocation) > 2) {
             player.teleport(data.jailLocation);
         }
 
-        // إعادة تشغيل العداد لو كان متوقف
         if (data.taskId == 0) {
-            startCountdown(id, player.getName(), data);
+            startCountdown(player.getUniqueId(), player.getName(), data);
         }
 
-        player.sendMessage(ChatColor.RED + "❗ You are still serving your jail sentence.");
+        player.sendMessage(
+                plugin.getLanguageManager().getMessage("jail_still_serving")
+        );
     }
 
-    // ✅ عند خروج اللاعب
+    // ============================================================
+    // 🚪 Player Quit
+    // ============================================================
     public void handleQuit(Player player) {
-        // لا حاجة لشيء هنا لأن العداد يوقف تلقائيًا
-    }
-
-    // منع التقاط العناصر
-    @EventHandler
-    public void onItemPickup(PlayerAttemptPickupItemEvent event) {
-        Player player = event.getPlayer();
-        if (isJailed(player.getUniqueId())) {
-            event.setCancelled(true);
-            player.sendMessage(ChatColor.RED + plugin.getLanguageManager().getMessage("jail_item_pickup_blocked"));
-        }
+        // no-op
     }
 }

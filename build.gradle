@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'com.qaut'
-version = '1.21'
+version = '1.3.0'
 description = 'Wardon Jail Plugin'
 
 java {
@@ -35,6 +35,12 @@ tasks.jar {
 tasks.shadowJar {
     archiveFileName = "${project.name}-${project.version}-all.jar"
     mergeServiceFiles()
+}
+processResources {
+    inputs.property "version", project.version
+    filesMatching("plugin.yml") {
+        expand(version: project.version)
+    }
 }
 
 build.dependsOn shadowJar

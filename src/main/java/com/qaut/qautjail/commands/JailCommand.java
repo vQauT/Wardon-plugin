@@ -105,8 +105,23 @@ public class JailCommand implements CommandExecutor {
                     duration
             );
 
-            // ✅ Admin feedback
-            sender.sendMessage(plugin.getLanguageManager().format("jail_done", target.getName(), jailName, timeArg));
+            String displayTimeArg = formatTimeForLang(timeArg, plugin.getLanguageManager().getCurrentLang());
+            String amsg = plugin.getLanguageManager().format(
+                    "broadcast_jail",
+                    target.getName(),
+                    jailName,
+                    displayTimeArg,
+                    reason
+            );
+
+            Bukkit.broadcastMessage(amsg);
+
+            target.sendMessage(plugin.getLanguageManager().format(
+                    "jail_player",
+                    displayTimeArg,
+                    reason
+            ));
+
 
             // ✅ Broadcast (if enabled)
             if (plugin.getConfig().getBoolean("broadcastjail", true)) {
@@ -114,12 +129,12 @@ public class JailCommand implements CommandExecutor {
                         "broadcast_jail",
                         target.getName(),
                         jailName,
-                        timeArg,
+                        displayTimeArg,
                         reason
                 );
-                msg = ChatColor.translateAlternateColorCodes('&', msg);
                 Bukkit.broadcastMessage(msg);
             }
+
 
             // ✅ Log to file
             plugin.getLogManager().logEvent("JAIL",
@@ -167,4 +182,70 @@ public class JailCommand implements CommandExecutor {
         }
         return total > 0 ? total : -1;
     }
+
+    private String formatTimeForLang(String timeArg, String lang) {
+        if (!"ar".equalsIgnoreCase(lang) || timeArg == null || timeArg.isEmpty()) {
+            return timeArg;
+        }
+
+        StringBuilder out = new StringBuilder();
+        StringBuilder number = new StringBuilder();
+
+        for (int i = 0; i < timeArg.length(); i++) {
+            char c = timeArg.charAt(i);
+            if (Character.isDigit(c)) {
+                number.append(c);
+                continue;
+            }
+
+            if (number.length() == 0) continue;
+
+            int value;
+            try {
+                value = Integer.parseInt(number.toString());
+            } catch (NumberFormatException e) {
+                return timeArg;
+            }
+
+            String unit = arabicUnit(value, c, timeArg, i);
+            if (unit == null) return timeArg;
+
+            if (out.length() > 0) out.append(" و ");
+            out.append(value).append(' ').append(unit);
+            number.setLength(0);
+        }
+
+        return out.length() == 0 ? timeArg : out.toString();
+    }
+
+    private String arabicUnit(int value, char unitChar, String timeArg, int index) {
+        if (unitChar == 'm' && index + 1 < timeArg.length() && timeArg.charAt(index + 1) == 'o') {
+            return arabicPlural(value, "شهر", "شهرين", "أشهر");
+        }
+
+        switch (unitChar) {
+            case 's':
+                return arabicPlural(value, "ثانية", "ثانيتين", "ثوانٍ");
+            case 'm':
+                return arabicPlural(value, "دقيقة", "دقيقتين", "دقائق");
+            case 'h':
+                return arabicPlural(value, "ساعة", "ساعتين", "ساعات");
+            case 'd':
+                return arabicPlural(value, "يوم", "يومين", "أيام");
+            case 'w':
+                return arabicPlural(value, "أسبوع", "أسبوعين", "أسابيع");
+            case 'y':
+                return arabicPlural(value, "سنة", "سنتين", "سنوات");
+            default:
+                return null;
+        }
+    }
+
+    private String arabicPlural(int value, String singular, String dual, String plural) {
+        if (value == 1) return singular;
+        if (value == 2) return dual;
+        if (value >= 3 && value <= 10) return plural;
+        return singular;
+    }
+
 }

@@ -19,23 +19,16 @@ public class WebhookSender {
         this.plugin = plugin;
     }
 
-    // ==============================
-    // 📡 SEND WEBHOOK
-    // ==============================
+    // ============================================================
+    // 📡 إرسال Webhook (أساسي)
+    // ============================================================
     private void sendWebhook(JsonObject payload) {
         try {
             boolean enabled = plugin.getConfig().getBoolean("discord.enable", false);
             String url = plugin.getConfig().getString("discord.webhook", "");
 
-            if (!enabled) {
-                Bukkit.getLogger().info("[Wardon 🌙] " + plugin.getLanguageManager().getMessage("embed.webhook.disabled"));
-                return;
-            }
-
-            if (url == null || url.isEmpty()) {
-                Bukkit.getLogger().warning("[Wardon 🌙] " + plugin.getLanguageManager().getMessage("embed.webhook.missing_url"));
-                return;
-            }
+            if (!enabled) return;
+            if (url == null || url.isEmpty()) return;
 
             URL webhookUrl = new URL(url);
             HttpURLConnection connection = (HttpURLConnection) webhookUrl.openConnection();
@@ -47,44 +40,98 @@ public class WebhookSender {
                 os.write(payload.toString().getBytes(StandardCharsets.UTF_8));
             }
 
-            int responseCode = connection.getResponseCode();
-            if (responseCode >= 200 && responseCode < 300) {
-                Bukkit.getLogger().info("[Wardon 🌙] " + plugin.getLanguageManager().getMessage("embed.webhook.sent"));
-            } else {
-                Bukkit.getLogger().warning("[Wardon 🌙] " +
-                        plugin.getLanguageManager().getMessage("embed.webhook.failed")
-                                .replace("{code}", String.valueOf(responseCode)));
-            }
-
+            connection.getInputStream().close();
             connection.disconnect();
 
         } catch (Exception e) {
-            Bukkit.getLogger().warning("[Wardon 🌙] " +
-                    plugin.getLanguageManager().getMessage("embed.webhook.error")
-                            .replace("{error}", e.getMessage()));
+            Bukkit.getLogger().warning("[Wardon] Discord Webhook Error: " + e.getMessage());
         }
     }
 
-    // ==============================
-    // 🔒 PLAYER JAILED EMBED
-    // ==============================
-    public void sendJailEmbed(String player, UUID uuid, String jailedBy, String reason, String jail, long duration) {
+    // ============================================================
+    // 🔔 Embed التحديث
+    // ============================================================
+    public void sendUpdateEmbed(String current, String latest) {
+
         JsonObject json = new JsonObject();
-        json.addProperty("username", "Wardon 🌙 • Logger");
-        json.addProperty("avatar_url", "https://mc-heads.net/avatar/" + uuid);
+        json.addProperty("username",
+                plugin.getLanguageManager().getMessage("embed.update.username")
+        );
+        json.addProperty(
+                "avatar_url",
+                "https://cdn.discordapp.com/attachments/1163745191765737472/1424322484206960741/logo.png?ex=697b23ae&is=6979d22e&hm=89b531dc85da570558bb94d63e7c6f5b38143a3929930434b081a48bda547c33&"
+        );
 
         JsonArray embeds = new JsonArray();
         JsonObject embed = new JsonObject();
 
-        embed.addProperty("title", "🔒 " + plugin.getLanguageManager().getMessage("embed.jailed.title"));
-        embed.addProperty("color", 0xE74C3C); // Red
+        embed.addProperty(
+                "title",
+                plugin.getLanguageManager().getMessage("embed.update.title")
+        );
+
+        String description = plugin.getLanguageManager()
+                .getPlainMessage("embed.update.description")
+                .replace("{current}", current)
+                .replace("{latest}", latest);
+
+        embed.addProperty("description", description);
+        embed.addProperty("color", 0xF1C40F); // أصفر تحذيري
+
+        JsonObject footer = new JsonObject();
+        footer.addProperty(
+                "text",
+                plugin.getLanguageManager().getMessage("embed.footer")
+        );
+        embed.add("footer", footer);
+
+        embeds.add(embed);
+        json.add("embeds", embeds);
+
+        sendWebhook(json);
+    }
+
+    // ============================================================
+    // 🔒 Embed سجن لاعب
+    // ============================================================
+    public void sendJailEmbed(String player, UUID uuid, String jailedBy,
+                              String reason, String jail, long duration) {
+
+        JsonObject json = new JsonObject();
+        json.addProperty("username", "Wardon Logger");
+        json.addProperty("avatar_url", "https://cdn.discordapp.com/attachments/1163745191765737472/1424322484206960741/logo.png?ex=697b23ae&is=6979d22e&hm=89b531dc85da570558bb94d63e7c6f5b38143a3929930434b081a48bda547c33&");
+
+        JsonArray embeds = new JsonArray();
+        JsonObject embed = new JsonObject();
+
+        embed.addProperty(
+                "title",
+                plugin.getLanguageManager().getMessage("embed.jailed.title")
+        );
+        embed.addProperty("color", 0xE74C3C);
 
         JsonArray fields = new JsonArray();
-        fields.add(createField(plugin.getLanguageManager().getMessage("embed.jailed.player"), player, true));
-        fields.add(createField(plugin.getLanguageManager().getMessage("embed.jailed.jail"), jail, true));
-        fields.add(createField(plugin.getLanguageManager().getMessage("embed.jailed.duration"), formatDuration(duration), true));
-        fields.add(createField(plugin.getLanguageManager().getMessage("embed.jailed.reason"), reason, false));
-        fields.add(createField(plugin.getLanguageManager().getMessage("embed.jailed.by"), jailedBy, false));
+        fields.add(createField(
+                plugin.getLanguageManager().getMessage("embed.jailed.player"),
+                player, true
+        ));
+        fields.add(createField(
+                plugin.getLanguageManager().getMessage("embed.jailed.jail"),
+                jail, true
+        ));
+        fields.add(createField(
+                plugin.getLanguageManager().getMessage("embed.jailed.duration"),
+                formatDuration(duration), true
+        ));
+        fields.add(createField(
+                plugin.getLanguageManager().getMessage("embed.jailed.reason"),
+                reason, false
+        ));
+        fields.add(createField(
+                plugin.getLanguageManager().getMessage("embed.jailed.by"),
+                jailedBy, false
+        ));
+
         embed.add("fields", fields);
 
         JsonObject thumb = new JsonObject();
@@ -92,7 +139,10 @@ public class WebhookSender {
         embed.add("thumbnail", thumb);
 
         JsonObject footer = new JsonObject();
-        footer.addProperty("text", plugin.getLanguageManager().getMessage("embed.footer"));
+        footer.addProperty(
+                "text",
+                plugin.getLanguageManager().getMessage("embed.footer")
+        );
         embed.add("footer", footer);
 
         embeds.add(embed);
@@ -101,41 +151,55 @@ public class WebhookSender {
         sendWebhook(json);
     }
 
-    // ==============================
-    // ✅ PLAYER UNJAILED EMBED (manual vs auto)
-    // ==============================
-    public void sendUnjailEmbed(String player, String unjailedBy, String avatarUrl, boolean auto) {
+    // ============================================================
+    // ✅ Embed الإفراج
+    // ============================================================
+    public void sendUnjailEmbed(String player, String unjailedBy,
+                                String avatarUrl, boolean auto) {
+
         JsonObject json = new JsonObject();
-        json.addProperty("username", "Wardon 🌙 • Logger");
+        json.addProperty("username", "Wardon Logger");
         json.addProperty("avatar_url", avatarUrl);
 
         JsonArray embeds = new JsonArray();
         JsonObject embed = new JsonObject();
 
-        // عنوان مختلف حسب السبب
-        String titleKey = auto ? "embed.unjailed.auto_title" : "embed.unjailed.manual_title";
-        embed.addProperty("title", "✅ " + plugin.getLanguageManager().getMessage(titleKey));
-        embed.addProperty("color", 0x2ECC71); // Green
+        String titleKey = auto
+                ? "embed.unjailed.auto_title"
+                : "embed.unjailed.manual_title";
+
+        embed.addProperty(
+                "title",
+                plugin.getLanguageManager().getMessage(titleKey)
+        );
+        embed.addProperty("color", 0x2ECC71);
 
         JsonArray fields = new JsonArray();
-        fields.add(createField(plugin.getLanguageManager().getMessage("embed.unjailed.player"), player, true));
-        fields.add(createField(plugin.getLanguageManager().getMessage("embed.unjailed.by"), unjailedBy, true));
-
-        // نوع الإفراج (يدوي / تلقائي)
+        fields.add(createField(
+                plugin.getLanguageManager().getMessage("embed.unjailed.player"),
+                player, true
+        ));
+        fields.add(createField(
+                plugin.getLanguageManager().getMessage("embed.unjailed.by"),
+                unjailedBy, true
+        ));
         fields.add(createField(
                 plugin.getLanguageManager().getMessage("embed.unjailed.type"),
-                plugin.getLanguageManager().getMessage(auto ? "embed.unjailed.type_auto" : "embed.unjailed.type_manual"),
+                plugin.getLanguageManager().getMessage(
+                        auto
+                                ? "embed.unjailed.type_auto"
+                                : "embed.unjailed.type_manual"
+                ),
                 true
         ));
 
         embed.add("fields", fields);
 
-        JsonObject thumb = new JsonObject();
-        thumb.addProperty("url", avatarUrl);
-        embed.add("thumbnail", thumb);
-
         JsonObject footer = new JsonObject();
-        footer.addProperty("text", plugin.getLanguageManager().getMessage("embed.footer"));
+        footer.addProperty(
+                "text",
+                plugin.getLanguageManager().getMessage("embed.footer")
+        );
         embed.add("footer", footer);
 
         embeds.add(embed);
@@ -144,9 +208,9 @@ public class WebhookSender {
         sendWebhook(json);
     }
 
-    // ==============================
-    // ⚙️ HELPERS
-    // ==============================
+    // ============================================================
+    // 🧩 Helpers
+    // ============================================================
     private JsonObject createField(String name, String value, boolean inline) {
         JsonObject field = new JsonObject();
         field.addProperty("name", name);
@@ -159,42 +223,12 @@ public class WebhookSender {
         long seconds = millis / 1000;
         long minutes = seconds / 60;
         long hours = minutes / 60;
+
         seconds %= 60;
         minutes %= 60;
+
         if (hours > 0) return hours + "h " + minutes + "m";
         if (minutes > 0) return minutes + "m " + seconds + "s";
         return seconds + "s";
     }
-
-    // ==============================
-// 🚨 PLUGIN UPDATE EMBED
-// ==============================
-    public void sendUpdateEmbed(String currentVersion, String latestVersion) {
-        JsonObject json = new JsonObject();
-        json.addProperty("username", "Wardon 🌙 • Update");
-        json.addProperty("avatar_url", "https://i.imgur.com/ZyK9Y5F.png"); // أيقونة ثابتة
-
-        JsonArray embeds = new JsonArray();
-        JsonObject embed = new JsonObject();
-
-        embed.addProperty("title", "🚨 تحديث جديد لبلوقن Wardon");
-        embed.addProperty("description",
-                "يوجد تحديث جديد متوفر لبلوقن **Wardon Jail**\n\n" +
-                        "🔹 الإصدار الحالي: **" + currentVersion + "**\n" +
-                        "🆕 الإصدار الجديد: **" + latestVersion + "**\n\n" +
-                        "⚠ يرجى تحديث البلوقن لتجنب المشاكل."
-        );
-
-        embed.addProperty("color", 0xF1C40F); // أصفر تحذير
-
-        JsonObject footer = new JsonObject();
-        footer.addProperty("text", plugin.getLanguageManager().getMessage("embed.footer"));
-        embed.add("footer", footer);
-
-        embeds.add(embed);
-        json.add("embeds", embeds);
-
-        sendWebhook(json); // ✅ استدعاء خاص من الداخل (مسموح)
-    }
-
 }

@@ -2,9 +2,7 @@ package com.qaut.qautjail.commands;
 
 import com.qaut.qautjail.QauTJail;
 import com.qaut.qautjail.utils.JailManager;
-import com.qaut.qautjail.utils.WebhookSender;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -41,32 +39,16 @@ public class UnJailCommand implements CommandExecutor {
             return true;
         }
 
-        // ✅ الإفراج عن اللاعب
-        jailManager.releasePlayer(target);
+        // ✅ الإفراج عن اللاعب (يدوي مع توحيد الإشعارات داخل JailManager)
+        jailManager.releasePlayerManual(target, sender.getName());
 
-        // ✅ رسائل مترجمة للإداري واللاعب
+        // ✅ رسالة للإداري فقط
         sender.sendMessage(plugin.getLanguageManager().format("unjail_admin", target.getName()));
-        target.sendMessage(plugin.getLanguageManager().getMessage("unjail_player"));
-
-        // ✅ إرسال إشعار Webhook إلى ديسكورد
-        new WebhookSender(plugin).sendUnjailEmbed(
-                target.getName(),
-                sender.getName(),
-                "https://mc-heads.net/avatar/" + target.getUniqueId(),
-                false // 👈 لأن الإفراج هنا يدوي
-        );
 
 
         // ✅ تسجيل الحدث في اللوق
         plugin.getLogManager().logEvent("UNJAIL",
                 sender.getName() + " released player '" + target.getName() + "'");
-
-        // ✅ بث عام في حال تم تفعيله من الكونفيغ
-        if (plugin.getConfig().getBoolean("broadcastunjail", true)) {
-            String msg = plugin.getLanguageManager().format("unjail_broadcast", target.getName());
-            msg = ChatColor.translateAlternateColorCodes('&', msg);
-            Bukkit.broadcastMessage(msg);
-        }
 
         return true;
     }

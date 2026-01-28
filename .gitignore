@@ -1,0 +1,26 @@
+# Gradle
+.gradle/
+build/
+
+# IntelliJ
+.idea/
+*.iml
+out/
+bin/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+
+# Server test files
+run/
+server/
+world/
+world_nether/
+world_the_end/
+
+# Jar outputs
+*.jar

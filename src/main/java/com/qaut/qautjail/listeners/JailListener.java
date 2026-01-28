@@ -65,7 +65,7 @@ public class JailListener implements Listener {
             }
 
             sign.setLine(0, "");
-            sign.setLine(1, ChatColor.DARK_RED + "" + ChatColor.BOLD + "Not Jail");
+            sign.setLine(1, ChatColor.GREEN + "[ Empty Cell ]");
             sign.setLine(2, "");
             sign.setLine(3, "");
             sign.update();
