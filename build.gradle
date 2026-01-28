@@ -1,0 +1,40 @@
+plugins {
+    id 'java'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
+}
+
+group = 'com.qaut'
+version = '1.21'
+description = 'Wardon Jail Plugin'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://repo.papermc.io/repository/maven-public/' }
+}
+
+dependencies {
+    compileOnly "io.papermc.paper:paper-api:1.21-R0.1-SNAPSHOT"
+    implementation "org.java-websocket:Java-WebSocket:1.5.6"
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+tasks.jar {
+    archiveFileName = "${project.name}-${project.version}.jar"
+}
+
+// ✅ مهم جداً — هذا يدمج مكتبة Java-WebSocket داخل البلوقن
+tasks.shadowJar {
+    archiveFileName = "${project.name}-${project.version}-all.jar"
+    mergeServiceFiles()
+}
+
+build.dependsOn shadowJar

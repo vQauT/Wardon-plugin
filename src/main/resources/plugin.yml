@@ -1,0 +1,82 @@
+name: Wardon
+main: com.qaut.qautjail.QauTJail
+version: 1.21
+api-version: 1.21
+author: QauT
+
+commands:
+  wardon:
+    description: Main command for Wardon Jail
+    usage: /wardon <args>
+    permission: wardon.main
+
+  setjail:
+    description: Create a new jail at your current location
+    usage: /setjail <name>
+    permission: wardon.setjail
+
+  jail:
+    description: Jail a player with duration and reason
+    usage: /jail <player> <jail> <time> <reason>
+    permission: wardon.jail
+
+  unjail:
+    description: Release a jailed player
+    usage: /unjail <player>
+    permission: wardon.unjail
+
+  deljail:
+    description: Delete an existing jail
+    usage: /deljail <jail>
+    permission: wardon.deljail
+
+  jaillist:
+    description: Show all existing jails
+    usage: /jaillist
+    permission: wardon.jaillist
+
+  setjailsign:
+    description: Link a sign to an existing jail
+    usage: /setjailsign <jailname>
+    permission: wardon.setjailsign
+
+permissions:
+  wardon.*:
+    description: Grants all Wardon Jail permissions
+    default: op
+    children:
+      wardon.main: true
+      wardon.setjail: true
+      wardon.jail: true
+      wardon.unjail: true
+      wardon.deljail: true
+      wardon.jaillist: true
+      wardon.setjailsign: true
+
+  wardon.main:
+    description: Allows using the main /wardon command
+    default: op
+
+  wardon.setjail:
+    description: Allows creating new jails
+    default: op
+
+  wardon.jail:
+    description: Allows jailing players
+    default: op
+
+  wardon.unjail:
+    description: Allows unjailing players
+    default: op
+
+  wardon.deljail:
+    description: Allows deleting jails
+    default: op
+
+  wardon.jaillist:
+    description: Allows viewing the jail list
+    default: op
+
+  wardon.setjailsign:
+    description: Allows linking a sign to a jail
+    default: op

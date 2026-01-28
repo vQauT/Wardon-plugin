@@ -1,0 +1,86 @@
+# ======================================================
+#              Wardon 🌙 Jail Plugin - Config
+# ======================================================
+# ⚡ Developed by QauT
+#   Version: 1.21.8
+#   Discord: https://discord.gg/WEwfvubp5C
+# ──────────────────────────────────────────────
+#  About:
+#   This plugin provides a complete jail system for
+#   Minecraft servers with advanced features:
+#   - Custom jails with linked signs
+#   - Time-based jail with inventory restore
+#   - Discord Webhook logging
+#   - Language system (EN/AR)
+#
+#  🔐 الحقوق محفوظة لـ QauT - لا تقم بإزالة الحقوق.
+# ──────────────────────────────────────────────
+#
+# ======================================================
+#   ⚙ General Settings / الإعدادات العامة
+# ======================================================
+
+# 🌐 Language / اللغة
+# Available: en (English) / ar (العربية)
+lang: en
+
+# Allow jailed players to break blocks?
+# هل يمكن للمسجونين كسر البلوكات؟
+allowbreak: false
+
+# Disable chat for jailed players?
+# هل يتم تعطيل الشات للمسجونين؟
+disabletextonchat: false
+
+# Blocked Commands for jailed players
+# أوامر يتم منعها عن المسجونين
+# Example / مثال:
+#  - tpa
+#  - home
+disablecommands:
+  - tpa
+  - tpr
+  - home
+
+# ======================================================
+#   📡 Discord Webhook / إعدادات الديسكورد
+# ======================================================
+
+discord:
+  # Enable Discord Webhook logging? (true/false)
+  # تفعيل إرسال الإشعارات إلى ديسكورد؟
+  enable: false
+
+  # Webhook URL
+  # رابط الويبهوك (ضع رابط من ديسكورد)
+  webhook: ""
+
+# ======================================================
+#   📢 Broadcast / الإعلانات
+# ======================================================
+
+# Announce to all players when someone is jailed?
+# هل يتم إرسال برودكاست لكل السيرفر عند سجن لاعب؟
+broadcastjail: true
+
+# Announce to all players when someone is unjailed?
+# هل يتم إرسال برودكاست عند الإفراج عن لاعب؟
+broadcastunjail: true
+
+# ======================================================
+#   🔒 Jail Restrictions / قيود السجن
+# ======================================================
+
+# Prevent jailed players from interacting with blocks/entities?
+# منع المسجونين من التفاعل (فتح صناديق، ضغط أزرار…)
+blockinteractions: true
+
+# Online Jail system:
+# true  → time counts only if player is online
+# false → time continues even if player is offline
+# نظام السجن:
+# true  → الوقت يُحتسب فقط عندما يكون اللاعب أونلاين
+# false → الوقت يستمر حتى لو اللاعب أوفلاين
+onlinejail: false
+
+
